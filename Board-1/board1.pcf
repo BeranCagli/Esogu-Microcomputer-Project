@@ -1,0 +1,16 @@
+version,0,0,0:0.9.2
+scale,0,0,0:0.900000
+position,911,108,1052:881
+boardp,51,115,672:394
+spare_on,0,0,0:1
+osc_on,0,0,0:0
+useAlias,0,0,0:0
+debug,0,0,0:
+osc_cfg,29,308,0:200.000000,-1.000000,1,1,2.500000,1,2,5,7,0
+osc_ch1,0,0,0:2.000000,0.000000,1,#FF0000,0,6  RA4
+osc_ch2,0,0,0:2.000000,0.000000,0,#00FF00,0,7  RA5
+Text Box,622,86,0:12,5,4,https://lcgamboa.github.io/picsimlab_examples/board_gpboard.html#board_gpboard_pic16f628a_test_b0%Examplesource info
+Temperature System,16,17,0:23,24,2,6,10.000000,0.000000
+Keypad,18,328,0:33,34,35,36,37,38,39,40,0,1
+7 Segments Display,391,145,0:19,20,21,22,27,28,29,30,15,16,17,18,1,0
+IO UART,459,439,0:25,26,9600, 
