@@ -1,5 +1,5 @@
 ;==============================================================================
-; # Authors: 152120221098 Emre AVCI and 151220212116 Beyzanur TOPÇU
+; # Authors: 152120231074, Beran ÇAĞLI
 ;
 ; I2C Module - BMP180 Sensor Communication
 ; This module provides I2C Master mode communication for BMP180 sensor
