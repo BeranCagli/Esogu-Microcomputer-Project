@@ -1,3 +1,4 @@
+; Authors : 151220212114, Mustafa GÜLTEKİN and 152120231042, Utku Buğra NAMKAZAN
 #include <xc.inc>
  config FOSC = XT
  config WDTE = OFF
@@ -459,7 +460,7 @@ TEMPERATURE_READ:
  /*
  ADCS1 = 1
  ADCS0 = 1
- (Bunlar ADC'nin �alisma hiziyla ilgiliymis)
+ (Bunlar ADC'nin çalisma hiziyla ilgiliymis)
  CHS2 = 0
  CHS1 = 0
  CHS0 = 0
@@ -1364,4 +1365,5 @@ Wait_TX:
     GOTO    Wait_TX
     BCF     STATUS, 5
     MOVWF   TXREG
+
     RETURN
