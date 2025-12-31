@@ -1,79 +1,92 @@
 #include <xc.inc>
- config	    FOSC = XT
- config	    WDTE = OFF
- config	    PWRTE = ON
- config	    BOREN = ON
- config	    LVP = OFF
- config	    CPD = OFF
- config	    CP = OFF
- config	    WRT = OFF
- config	    DEBUG = OFF
- PSECT resetVec, class=CODE, delta=2
- ORG 0x00
- /*
- ADCON1 = 10xx1110B
-    bit0 - bit3 (10xx)
-    ADFM = 1, ADCS2 = 0, onemsiz, onemsiz
-    bit4 - bit7 (1110)
-    PCFG3-PCFG0 = 1110 -> AN0 (RA0) Analog, geri kalan AN1-AN7(RA1, RA2, RA3, RA4, RA5, RE0, RE1, RE2) Digital
- TRISA = 00011111B
-    RA0-RA4 INPUT,  RA5 OUTPUT
- TRISB = 00001111B
-    RB0-RB3 INPUT, RB4-RB7 OUTPUT
- TRISC = 00000000B
-    RC0-RC7 OUTPUT
- TRISD = 00000000B
-    RD0-RD7 OUTPUT
- TRISE = 00000000B
-    RE0-RE2 OUTPUT
- Temperature System
-    Heater	DO	RC4(23)
-    Cooler	DO	RC5(24)
-    Temp	AI	RA0(2)
-    Tach	DI	RA4(6)
- 7-Segment Display
-    seg a-g	DO	RD0-RD6(19, 20, 21, 22, 27, 28, 29)
-    Point(dp)	DO	RD7(30)
-    D1-D4	DO	RC0-RC3(15, 16, 17, 18)
- Keypad
-    P1-L1-P4-L4	DI	RB0-RB3(33, 34, 35, 36)
-    P5-C1-P8-C4	DO	RB4-RB7(37, 38, 39, 40)
- UART
-    P2-RX		RC6(25)
-    P3-TX		RC7(26)
- */
- // 4 byte variable, 2^15 - 2^-16
- CURRENT_TEMPERATURE	    EQU	    0x20
- TEMP_TEMPERATURE	    EQU	    0x24
- // 4 byte variable, rakamsal degerleri
- CURRENT_TEMPERATURE_DIGITS EQU	    0x28
- DESIRED_TEMPERATURE_DIGITS EQU	    0x30
- FAN_SPEED_DIGITS	    EQU	    0x34
- TEMP_TEMPERATURE_DIGITS    EQU	    0x38
- DESIRED_TEMPERATURE_CHECKING_DIGITS EQU 0x40
- //
- FAN_SPEED		    EQU     0x44
- ONE_SEC_COUNTER_1	    EQU     0x45
- ONE_SEC_COUNTER_2	    EQU     0x46
- S_SEGMENT_DIGIT0	    EQU	    0x50
- S_SEGMENT_DIGIT1	    EQU	    0x51
- S_SEGMENT_DIGIT2	    EQU	    0x52
- S_SEGMENT_DIGIT3	    EQU	    0x53
-	    
- SLEEP_FUNCTION_VARIABLE0   EQU     0x70
- SLEEP_FUNCTION_VARIABLE1   EQU     0x71
- SLEEP_FUNCTION_VARIABLE2   EQU     0x72
- //2 byte, ADRESH ve ADRESL degerlerini tutuyor
- ADC_VALUE		    EQU	    0x73
+ config FOSC = XT
+ config WDTE = OFF
+ config PWRTE = ON
+ config BOREN = ON
+ config LVP = OFF
+ config CPD = OFF
+ config CP = OFF
+ config WRT = OFF
+ config DEBUG = OFF
+CURRENT_TEMPERATURE         EQU     0x20
+TEMP_TEMPERATURE            EQU     0x24
+CURRENT_TEMPERATURE_DIGITS  EQU     0x28
+DESIRED_TEMPERATURE_DIGITS  EQU     0x30
+FAN_SPEED_DIGITS            EQU     0x34
+TEMP_TEMPERATURE_DIGITS     EQU     0x38
+DESIRED_TEMPERATURE_CHECKING_DIGITS EQU 0x40
+INPUT_DIGITS		    EQU	    0x44
+FAN_SPEED                   EQU     0x48
+ONE_SEC_COUNTER_1           EQU     0x49
+ONE_SEC_COUNTER_2           EQU     0x4A
+S_SEGMENT_DIGIT0            EQU     0x50
+S_SEGMENT_DIGIT1            EQU     0x51
+S_SEGMENT_DIGIT2            EQU     0x52
+S_SEGMENT_DIGIT3            EQU     0x53
+TEMP_2_BYTE		    EQU     0x54    
+SLEEP_FUNCTION_VARIABLE0    EQU     0x70
+SLEEP_FUNCTION_VARIABLE1    EQU     0x71
+SLEEP_FUNCTION_VARIABLE2    EQU     0x72
+ADC_VALUE                   EQU     0x73
+DID_RELEASED		    EQU	    0x75
+INPUT_SCANNED_VALUE	    EQU	    0x76
+INPUT_SCANNED_VALUE_OLD     EQU	    0x77
+INPUT_CURRENT_INDEX	    EQU	    0x78
+INPUT_CONTROL		    EQU	    0x79
+W_TEMP			    EQU     0x7D
+STATUS_TEMP		    EQU     0x7E
+PCLATH_TEMP		    EQU	    0x7F
+; UART Variables
+com_buf         EQU     0x75
+val_integ       EQU     0x76
+val_fract       EQU     0x77
+pend_flag       EQU     0x78
+target_int      EQU     0x79
+target_frac     EQU     0x7A
+target_val      EQU     0x7B
+temp_calc       EQU     0x7C
 
-	    
- GOTO	MAIN
+ PSECT resetVec, class=CODE, delta=2
+ORG 0x00
+GLOBAL _main
+ GLOBAL start_initialization
+_main:
+    GOTO MAIN
+    
+start_initialization:        
+    RETURN
+ORG 0x04
+ GOTO	ISR
+ISR:
+    MOVWF   W_TEMP
+    SWAPF   STATUS,	W
+    MOVWF   STATUS_TEMP
+    CLRF    STATUS
+    MOVF    PCLATH,	W
+    MOVWF   PCLATH_TEMP
+    CLRF    PCLATH
+    BANKSEL INTCON
+    BTFSS   INTCON,   1
+    GOTO    ISR_EXIT
+    BANKSEL INTCON
+    BTFSS   INTCON,   1
+    GOTO    ISR_EXIT
+    BSF	    INPUT_CONTROL,  0
+    BANKSEL INTCON
+    BCF	    INTCON,	1
+ISR_EXIT:
+    MOVF PCLATH_TEMP, W
+    MOVWF PCLATH
+    SWAPF STATUS_TEMP, W
+    MOVWF STATUS
+    SWAPF W_TEMP, F
+    SWAPF W_TEMP, W
+    RETFIE
 MAIN:
- CALL	INIT
- CALL	TURN_HEATER_ON
- 
- MOVLW	1
- MOVWF	TEMP_TEMPERATURE_DIGITS + 0
+ CALL   INIT
+ CALL   TURN_HEATER_ON
+ MOVLW  1
+ MOVWF  TEMP_TEMPERATURE_DIGITS + 0
  MOVLW	2
  MOVWF	TEMP_TEMPERATURE_DIGITS + 1
  MOVLW	3
@@ -84,18 +97,269 @@ MAIN:
  CALL	DESIRED_NUMBER_CHECKER
  GOTO	LOOP
 LOOP:
- CALL	DISPLAY_CURRENT_TEMPERATURE_2_SECOND
- CALL	DISPLAY_DESIRED_TEMPERATURE_2_SECOND
- CALL	DISPLAY_FAN_SPEED_2_SECOND
- /*
- CALL	TEMPERATURE_READ
- CALL	ADC_TO_DIGITS
- CALL	DESIRED_NUMBER_OCCASIONALLY_CHECKER
- CALL	DISPLAY_CURRENT_TEMPERATURE
- */
- //CALL	DISPLAY_FAN_SPEED
+ BTFSC  INPUT_CONTROL,        0
+ CALL        INPUT_LOGIC
+ CALL        DISPLAY_CURRENT_TEMPERATURE_2_SECOND
+ CALL        DISPLAY_CURRENT_TEMPERATURE_2_SECOND
+ BTFSC  INPUT_CONTROL,        0
+ CALL        INPUT_LOGIC
+ CALL        DISPLAY_DESIRED_TEMPERATURE_2_SECOND
+ CALL        DISPLAY_DESIRED_TEMPERATURE_2_SECOND
+ BTFSC  INPUT_CONTROL,        0
+ CALL        INPUT_LOGIC
+ CALL        DISPLAY_FAN_SPEED_2_SECOND
+ CALL        DISPLAY_FAN_SPEED_2_SECOND
+
  GOTO	LOOP
+INPUT_LOGIC:
+    BCF     INTCON, 7       
+    CALL    TURN_HEATER_OFF
+    CALL    TURN_COOLER_OFF
+    
+
+    MOVLW   10
+    MOVWF   INPUT_DIGITS + 0
+    MOVWF   INPUT_DIGITS + 1
+    MOVWF   INPUT_DIGITS + 2
+    MOVWF   INPUT_DIGITS + 3
+    
+
+    MOVLW   255
+    MOVWF   INPUT_SCANNED_VALUE_OLD
+    CLRF    INPUT_CURRENT_INDEX
+
+INPUT_LOGIC_LOOP:
+    CALL    DISPLAY_INPUT
+    CALL    INPUT_SCANNER
+    MOVWF   INPUT_SCANNED_VALUE
+
+
+    MOVF    INPUT_SCANNED_VALUE, W
+    XORWF   INPUT_SCANNED_VALUE_OLD, W
+    BTFSC   STATUS, 2
+    GOTO    INPUT_LOGIC_LOOP
+
+
+    MOVLW   255
+    SUBWF   INPUT_SCANNED_VALUE, W
+    BTFSC   STATUS, 2
+    GOTO    UPDATE_OLD_AND_LOOP
+
+    MOVLW   0
+    SUBWF   INPUT_CURRENT_INDEX, W
+    BTFSC   STATUS, 2
+    GOTO    INPUT_INDEX_0
+    
+    MOVLW   1
+    SUBWF   INPUT_CURRENT_INDEX, W
+    BTFSC   STATUS, 2
+    GOTO    INPUT_INDEX_1
+
+    MOVLW   2
+    SUBWF   INPUT_CURRENT_INDEX, W
+    BTFSC   STATUS, 2
+    GOTO    INPUT_INDEX_2
+
+    MOVLW   3
+    SUBWF   INPUT_CURRENT_INDEX, W
+    BTFSC   STATUS, 2
+    GOTO    INPUT_INDEX_3
+
+    MOVLW   4
+    SUBWF   INPUT_CURRENT_INDEX, W
+    BTFSC   STATUS, 2
+    GOTO    INPUT_INDEX_4
+
+
+    MOVF    INPUT_DIGITS + 0, W
+    MOVWF   TEMP_TEMPERATURE_DIGITS + 0
+    MOVF    INPUT_DIGITS + 1, W
+    MOVWF   TEMP_TEMPERATURE_DIGITS + 1
+    MOVF    INPUT_DIGITS + 2, W
+    MOVWF   TEMP_TEMPERATURE_DIGITS + 2
+    MOVLW   0  
+    MOVWF   TEMP_TEMPERATURE_DIGITS + 3
+    
+    CALL    DESIRED_NUMBER_CHECKER
+    
+    BCF     INPUT_CONTROL, 0  
+    BANKSEL PORTB
+    MOVLW 0xF0
+    MOVWF PORTB
+    BCF PORTB, 7
+    BANKSEL INTCON
+    BCF	    INTCON, 1
+    BSF     INTCON, 7        
+    RETURN  
+
+
+
+INPUT_INDEX_0:
+    CALL    DISPLAY_INPUT
+    MOVF    INPUT_SCANNED_VALUE, W
+    SUBLW   9
+    BTFSS   STATUS, 0     
+    GOTO    UPDATE_OLD_AND_LOOP 
+    
+
+    MOVF    INPUT_SCANNED_VALUE, W
+    MOVWF   INPUT_DIGITS + 1
+    MOVLW   1
+    MOVWF   INPUT_CURRENT_INDEX
+    GOTO    FORCE_WAIT_RELEASE
+
+INPUT_INDEX_1: 
+    CALL    DISPLAY_INPUT
+    MOVF    INPUT_SCANNED_VALUE, W
+    SUBLW   9
+    BTFSS   STATUS, 0      
+    GOTO    INPUT_INDEX_1_CHECK_STAR
+    
+
+    MOVF    INPUT_DIGITS + 1, W
+    MOVWF   INPUT_DIGITS + 0 
+    MOVF    INPUT_SCANNED_VALUE, W
+    MOVWF   INPUT_DIGITS + 1 
+    MOVLW   2
+    MOVWF   INPUT_CURRENT_INDEX
+    GOTO    FORCE_WAIT_RELEASE
+
+INPUT_INDEX_1_CHECK_STAR:
+
+    GOTO    UPDATE_OLD_AND_LOOP
+
+INPUT_INDEX_2: 
+    CALL    DISPLAY_INPUT
+    MOVF    INPUT_SCANNED_VALUE, W
+    XORLW   14              
+    BTFSS   STATUS, 2       
+    GOTO    UPDATE_OLD_AND_LOOP 
+    
+   
+    MOVLW   3
+    MOVWF   INPUT_CURRENT_INDEX
+    GOTO    FORCE_WAIT_RELEASE
+
+INPUT_INDEX_3: 
+    CALL    DISPLAY_INPUT
+    MOVF    INPUT_SCANNED_VALUE, W
+    SUBLW   9
+    BTFSS   STATUS, 0      
+    GOTO    UPDATE_OLD_AND_LOOP
+    
+
+    MOVF    INPUT_SCANNED_VALUE, W
+    MOVWF   INPUT_DIGITS + 2 
+    MOVLW   4
+    MOVWF   INPUT_CURRENT_INDEX
+    GOTO    FORCE_WAIT_RELEASE
+
+INPUT_INDEX_4: 
+    CALL    DISPLAY_INPUT
+    MOVF    INPUT_SCANNED_VALUE, W
+    XORLW   15            
+    BTFSS   STATUS, 2       
+    GOTO    UPDATE_OLD_AND_LOOP
+    
+
+    MOVLW   5
+    MOVWF   INPUT_CURRENT_INDEX
+    GOTO    FORCE_WAIT_RELEASE
+
+
+
+UPDATE_OLD_AND_LOOP:
+    MOVF    INPUT_SCANNED_VALUE, W
+    MOVWF   INPUT_SCANNED_VALUE_OLD
+    GOTO    INPUT_LOGIC_LOOP
+
+FORCE_WAIT_RELEASE:
+    CALL    SLEEP_FUNCTION
+    MOVLW   5
+    MOVWF   DID_RELEASED
+    MOVF    INPUT_SCANNED_VALUE, W   
+    MOVWF   INPUT_SCANNED_VALUE_OLD   
+WAIT_RELEASE_LOOP:
+    CALL    DISPLAY_INPUT
+    CALL    INPUT_SCANNER
+    SUBLW   255
+    BTFSS   STATUS, 2
+    GOTO    RESET_RELEASE_TIMER
+    
+    CALL    SLEEP_FUNCTION
+    DECFSZ  DID_RELEASED, F
+    GOTO    WAIT_RELEASE_LOOP
+    GOTO    INPUT_LOGIC_LOOP
+
+RESET_RELEASE_TIMER:
+    MOVLW   5
+    MOVWF   DID_RELEASED
+    GOTO    WAIT_RELEASE_LOOP
+INPUT_SCANNER:
+    CALL    SELECT_BANK0
+    
+    
+    MOVLW   11100000B  
+    IORWF   PORTB, F     
+
+    MOVLW   0xEF            
+    MOVWF   PORTB 
+    NOP                    
+    BTFSS   PORTB, 0
+    RETLW   1
+    BTFSS   PORTB, 1
+    RETLW   4
+    BTFSS   PORTB, 2
+    RETLW   7
+    BTFSS   PORTB, 3
+    RETLW   14
+
+
+    MOVLW   0xDF     
+    MOVWF   PORTB
+    NOP
+    BTFSS   PORTB, 0
+    RETLW   2
+    BTFSS   PORTB, 1
+    RETLW   5
+    BTFSS   PORTB, 2
+    RETLW   8
+    BTFSS   PORTB, 3
+    RETLW   0
+
+
+    MOVLW   0xBF    
+    MOVWF   PORTB
+    NOP
+    BTFSS   PORTB, 0
+    RETLW   3
+    BTFSS   PORTB, 1
+    RETLW   6
+    BTFSS   PORTB, 2
+    RETLW   9
+    BTFSS   PORTB, 3
+    RETLW   15
+
+ 
+    MOVLW   0x7F         
+    MOVWF   PORTB
+    NOP
+    BTFSS   PORTB, 0
+    RETLW   10
+    BTFSS   PORTB, 1
+    RETLW   11
+    BTFSS   PORTB, 2
+    RETLW   12
+    BTFSS   PORTB, 3
+    RETLW   13
+
+    
+    MOVLW   0xF0
+    MOVWF   PORTB
+    RETLW   255
 INIT:
+    BANKSEL INTCON
+    CLRF    INTCON
     CALL SELECT_BANK1
     MOVLW   10001110B
     MOVWF   ADCON1
@@ -103,17 +367,24 @@ INIT:
     MOVWF   TRISA 
     MOVLW   00001111B
     MOVWF   TRISB
-    CLRF    TRISC
+    MOVLW   11000000B   ; Set RC6(TX) and RC7(RX) as inputs for UART
+    MOVWF   TRISC
     CLRF    TRISD
     CLRF    TRISE
     MOVLW   0x28  
     MOVWF   OPTION_REG
     CALL    SELECT_BANK0
     CLRF    PORTA
-    CLRF    PORTB
+    MOVLW   0xF0
+    MOVWF   PORTB
+    BCF	    PORTB,  7
     CLRF    PORTC
     CLRF    PORTD
     CLRF    PORTE
+    BCF     INTCON, 1
+    BSF     INTCON, 4
+    BSF     INTCON, 7
+    CALL    Comm_Config
     RETURN
 SELECT_BANK0:
     BCF	    STATUS,	STATUS_RP0_POSITION
@@ -132,10 +403,11 @@ SELECT_BANK3:
     BSF	    STATUS,	STATUS_RP1_POSITION
     RETURN
 SLEEP_FUNCTION:
-    MOVLW   250
+    MOVLW   110
     MOVWF   SLEEP_FUNCTION_VARIABLE0
 SLEEP_FUNCTION_LOOP:
     NOP
+    CALL    Task_Comm_Handler
     DECFSZ  SLEEP_FUNCTION_VARIABLE0
     GOTO    SLEEP_FUNCTION_LOOP
     RETURN
@@ -221,7 +493,7 @@ TEMPERATURE_READ_LOOP:
  MOVWF	CURRENT_TEMPERATURE + 1
  //
  BCF	STATUS,	STATUS_C_POSITION
-
+ 
  RRF	CURRENT_TEMPERATURE + 0
  RRF	CURRENT_TEMPERATURE + 1
  RRF	CURRENT_TEMPERATURE + 2
@@ -232,6 +504,7 @@ TEMPERATURE_READ_LOOP:
  
  RETURN
 //----------
+
 S_SEGMENT_SELECT_0:
  BSF	PORTC,	0
  RETURN
@@ -296,6 +569,10 @@ S_SEGMENT_9:
  MOVLW   01101111B
  MOVWF   PORTD
  RETURN
+S_SEGMENT_BLANK:
+ MOVLW   00000000B
+ MOVWF   PORTD
+ RETURN
 S_SEGMENT_POINT:
  BSF	PORTD,	7
  RETURN
@@ -311,6 +588,7 @@ DIGIT_CHOOSER:
  GOTO	S_SEGMENT_7
  GOTO	S_SEGMENT_8
  GOTO	S_SEGMENT_9
+ GOTO	S_SEGMENT_BLANK
 ADC_TO_DIGITS:
  CALL	SELECT_BANK0
  CLRF	CURRENT_TEMPERATURE_DIGITS + 0
@@ -741,6 +1019,36 @@ DISPLAY_FAN_SPEED:
  CALL	SLEEP_FUNCTION
  CALL	S_SEGMENT_UNSELECT_3
  RETURN
+DISPLAY_INPUT:
+ CALL	S_SEGMENT_SELECT_0
+ MOVLW  HIGH DIGIT_CHOOSER
+ MOVWF  PCLATH
+ MOVF	INPUT_DIGITS + 0, W
+ CALL	DIGIT_CHOOSER
+ CALL	SLEEP_FUNCTION
+ CALL	S_SEGMENT_UNSELECT_0
+ CALL	S_SEGMENT_SELECT_1
+ MOVLW  HIGH DIGIT_CHOOSER
+ MOVWF  PCLATH
+ MOVF	INPUT_DIGITS + 1, W
+ CALL	DIGIT_CHOOSER
+ CALL	SLEEP_FUNCTION
+ CALL	S_SEGMENT_UNSELECT_1
+ CALL	S_SEGMENT_SELECT_2
+ MOVLW  HIGH DIGIT_CHOOSER
+ MOVWF  PCLATH
+ MOVF	INPUT_DIGITS + 2, W
+ CALL	DIGIT_CHOOSER
+ CALL	SLEEP_FUNCTION
+ CALL	S_SEGMENT_UNSELECT_2
+ CALL	S_SEGMENT_SELECT_3
+ MOVLW  HIGH DIGIT_CHOOSER
+ MOVWF  PCLATH
+ MOVF	INPUT_DIGITS + 3, W
+ CALL	DIGIT_CHOOSER
+ CALL	SLEEP_FUNCTION
+ CALL	S_SEGMENT_UNSELECT_3
+ RETURN
 DESIRED_NUMBER_CHECKER:
  MOVLW	5
  MOVWF	DESIRED_TEMPERATURE_CHECKING_DIGITS + 0
@@ -892,4 +1200,168 @@ DISPLAY_FAN_SPEED_2_SECOND_LOOP:
     CALL    DISPLAY_FAN_SPEED
     DECFSZ  SLEEP_FUNCTION_VARIABLE2
     GOTO    DISPLAY_FAN_SPEED_2_SECOND_LOOP  
+    RETURN
+
+; UART Implementation
+
+Comm_Config:
+    BSF     STATUS, 5
+    MOVLW   25
+    MOVWF   SPBRG
+    MOVLW   0x24
+    MOVWF   TXSTA
+    BCF     STATUS, 5
+    MOVLW   0x90
+    MOVWF   RCSTA
+    CLRF    pend_flag
+    RETURN
+
+Task_Comm_Handler:
+    BTFSS   PIR1, 5
+    RETURN
+    BTFSC   RCSTA, 1
+    GOTO    Fix_OERR
+    BTFSC   RCSTA, 2
+    GOTO    Handle_FERR
+    MOVF    RCREG, W
+    MOVWF   com_buf
+    BTFSS   com_buf, 7
+    GOTO    Parse_Get_Cmds
+    GOTO    Parse_Set_Cmds
+
+Handle_FERR:
+    MOVF    RCREG, W
+    RETURN
+
+Fix_OERR:
+    BCF     RCSTA, 4
+    BSF     RCSTA, 4
+    RETURN
+
+Parse_Get_Cmds:
+    MOVF    com_buf, W
+    ADDLW   -1
+    BTFSC   STATUS, 2
+    GOTO    Rep_Target_Frac
+    ADDLW   -1
+    BTFSC   STATUS, 2
+    GOTO    Rep_Target_Int
+    ADDLW   -1
+    BTFSC   STATUS, 2
+    GOTO    Rep_Amb_Frac
+    ADDLW   -1
+    BTFSC   STATUS, 2
+    GOTO    Rep_Amb_Int
+    ADDLW   -1
+    BTFSC   STATUS, 2
+    GOTO    Rep_Fan
+    RETURN
+
+Parse_Set_Cmds:
+    BTFSS   com_buf, 6
+    GOTO    Store_Fraction
+    MOVF    com_buf, W
+    ANDLW   0x3F
+    MOVWF   val_integ
+    BSF     pend_flag, 7
+    RETURN
+
+Store_Fraction:
+    MOVF    com_buf, W
+    ANDLW   0x3F
+    MOVWF   val_fract
+    BTFSS   pend_flag, 7
+    RETURN
+    MOVF    val_integ, W
+    SUBLW   9
+    BTFSC   STATUS, 0
+    GOTO    Invalid_Range
+    MOVF    val_integ, W
+    SUBLW   50
+    BTFSS   STATUS, 0
+    GOTO    Invalid_Range
+    MOVF    val_integ, W
+    XORLW   50
+    BTFSS   STATUS, 2
+    GOTO    Check_50_Limit
+    GOTO    Commit_Values
+
+Check_50_Limit:
+    MOVF    val_fract, F
+    BTFSS   STATUS, 2
+    GOTO    Invalid_Range
+
+Commit_Values:
+    MOVF    val_integ, W
+    MOVWF   target_int
+    MOVF    val_fract, W
+    MOVWF   target_frac
+    CALL    Recalculate_Target
+    CALL    UPDATE_DESIRED_DISPLAY
+    BCF     pend_flag, 7
+    RETURN
+
+UPDATE_DESIRED_DISPLAY:
+    ; Convert target_int to Tens and Ones
+    CLRF    DESIRED_TEMPERATURE_DIGITS + 0 ; Hundreds/Tens (here Tens)
+    MOVF    target_int, W
+    MOVWF   temp_calc
+Calc_Tens:
+    MOVLW   10
+    SUBWF   temp_calc, W
+    BTFSS   STATUS, 0 ; Check Borrow (Carry=0 means W > temp_calc i.e. result negative)
+    GOTO    Calc_Ones
+    MOVWF   temp_calc
+    INCF    DESIRED_TEMPERATURE_DIGITS + 0, F
+    GOTO    Calc_Tens
+Calc_Ones:
+    MOVF    temp_calc, W
+    MOVWF   DESIRED_TEMPERATURE_DIGITS + 1 ; Ones
+    
+    ; Convert target_frac to Tenths
+    MOVF    target_frac, W
+    MOVWF   DESIRED_TEMPERATURE_DIGITS + 2 ; Tenths
+    CLRF    DESIRED_TEMPERATURE_DIGITS + 3 ; Hundredths
+    RETURN
+
+Invalid_Range:
+    BCF     pend_flag, 7
+    RETURN
+
+Recalculate_Target:
+    MOVF    target_int, W
+    MOVWF   target_val
+    XORLW   50
+    BTFSC   STATUS, 2
+    RETURN
+    MOVLW   5
+    SUBWF   target_frac, W
+    BTFSS   STATUS, 0
+    RETURN
+    INCF    target_val, F
+    RETURN
+
+Rep_Target_Frac:
+    MOVF    target_frac, W
+    GOTO    Send_Byte
+Rep_Target_Int:
+    MOVF    target_int, W
+    GOTO    Send_Byte
+Rep_Amb_Frac:
+    MOVLW   0
+    GOTO    Send_Byte
+Rep_Amb_Int:
+    MOVF    ADC_VALUE+1, W
+    GOTO    Send_Byte
+Rep_Fan:
+    MOVF    FAN_SPEED, W
+    GOTO    Send_Byte
+
+Send_Byte:
+    BSF     STATUS, 5
+Wait_TX:
+    BTFSS   TXSTA, 1
+    GOTO    Wait_TX
+    BCF     STATUS, 5
+    MOVWF   TXREG
     RETURN
